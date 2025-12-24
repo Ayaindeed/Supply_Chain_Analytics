@@ -1,0 +1,487 @@
+Architecture de Business Intelligence pour l'Optimisation de Chaîne Logistique : ETL Orchestré, Prédiction de Demande et Dashboard Décisionnele
+dbt + Airflow - Rôle de dbt dans ton Projet
+RÉSUMÉ : Quel rôle joue dbt ?
+dbt n'est PAS un orchéstrateur (c'est Airflow) dbt n'est PAS un outil d'extraction (c'est Python/Airflow)
+dbt EST un outil de TRANSFORMATION SQL spécialisé
+
+📊 LA NOUVELLE ARCHITECTURE
+SOURCES (CSV)
+    ↓
+[AIRFLOW - ORCHESTRATION]
+    ├─ Task 1: Extract (Python/Pandas)
+    │   → Lire CSV, charger dans PostgreSQL (raw_data)
+    │
+    ├─ Task 2: dbt Transform (SQL)
+    │   → Nettoyer, transformer, créer vues
+    │   → Gérée par Airflow
+    │
+    ├─ Task 3: Feature Engineering (Python/dbt)
+    │   → Créer colonnes dérivées
+    │
+    ├─ Task 4: Data Quality Tests (dbt)
+    │   → Tests automatiques
+    │
+    └─ Task 5: ML Modeling (Python/XGBoost)
+        → Entraîner modèles
+    ↓
+[PostgreSQL - DATA WAREHOUSE]
+    ├─ raw_data (données brutes)
+    ├─ staging (données transformées)
+    └─ analytics (vues finales pour BI)
+    ↓
+[Power BI - REPORTING]
+    └─ Dashboard interactive
+
+
+🔄 LE FLUX COMPLET
+Sans dbt (Avant) :
+CSV → Python (Pandas) → SQL (Postgres) → Power BI
+     (complexe, peu testable)
+
+Avec dbt (Après) :
+CSV → Airflow (Orchestration)
+         ↓
+      dbt (Transformations SQL + Tests)
+         ↓
+      PostgreSQL (Clean Data)
+         ↓
+      Power BI (Dashboard)
+     (modulaire, testable, documenté)
+
+
+🎯 LES 5 RÔLES DE dbt
+1️⃣ TRANSFORMATION SQL (Rôle Principal)
+Avant (sans dbt) - Code Python complexe :
+# scripts/transform.py
+def transform_data(df):
+    df['Delai_livraison'] = (df['Delivery Date'] - df['Order Date']).dt.days
+    df['Mois'] = df['Order Date'].dt.month
+    df['Is_Late'] = (df['Delai_livraison'] > 7).astype(int)
+    # ... 100 lignes de pandas compliqué
+    return df
+
+Après (avec dbt) - SQL lisible :
+-- dbt/models/staging/stg_orders.sql
+SELECT 
+    order_id,
+    order_date,
+    delivery_date,
+    DATE_DIFF(delivery_date, order_date) as delai_livraison,
+    EXTRACT(MONTH FROM order_date) as mois,
+    CASE WHEN DATE_DIFF(delivery_date, order_date) > 7 THEN 1 ELSE 0 END as is_late
+FROM {{ source('raw', 'orders') }}
+WHERE order_date IS NOT NULL
+
+Avantages : ✅ SQL > Pandas pour la transformation ✅ Version contrôlée (Git) ✅ Documenté automatiquement ✅ Réutilisable
+
+2️⃣ GESTION DES DÉPENDANCES
+dbt gère automatiquement l'ordre d'exécution :
+-- dbt/models/staging/stg_orders.sql
+SELECT * FROM {{ source('raw', 'raw_data') }}
+
+-- dbt/models/staging/stg_deliveries.sql
+SELECT * FROM {{ source('raw', 'deliveries') }}
+
+-- dbt/models/marts/fct_supply_chain.sql
+SELECT 
+    o.*,
+    d.delai
+FROM {{ ref('stg_orders') }} o
+LEFT JOIN {{ ref('stg_deliveries') }} d USING (order_id)
+-- dbt sait que celui-ci dépend des 2 autres ↑
+
+Sans dbt, tu dois gérer manuellement avec Airflow :
+task_1_orders >> task_2_deliveries >> task_3_combine
+
+Avec dbt, c'est automatique :
+dbt run  # Exécute dans le bon ordre automatiquement!
+
+
+3️⃣ TESTS DE QUALITÉ DE DONNÉES
+# dbt/models/staging/stg_orders.yml
+models:
+  - name: stg_orders
+    columns:
+      - name: order_id
+        tests:
+          - unique           # Chaque ID est unique
+          - not_null         # Pas de NULL
+      - name: order_date
+        tests:
+          - not_null
+      - name: is_late
+        tests:
+          - accepted_values: # Seulement 0 ou 1
+              values: [0, 1]
+
+  - name: fct_supply_chain
+    tests:
+      - dbt_utils.recency:  # Les données ne sont pas trop vieilles
+          datepart: day
+          interval: 7
+          field: order_date
+
+Exécution :
+dbt test  # Tous les tests s'exécutent
+
+# Résultat :
+✅ Unique test on stg_orders.order_id: PASSED
+✅ Not null test on stg_orders.order_date: PASSED
+❌ Accepted values test on fct_supply_chain.is_late: FAILED
+   → 5 rows have invalid values
+
+Intégration Airflow :
+@task
+def run_dbt_tests():
+    result = os.system('dbt test')
+    if result != 0:
+        raise ValueError("dbt tests failed!")
+    return "Tests passed"
+
+
+4️⃣ DOCUMENTATION AUTOMATIQUE
+dbt génère automatiquement de la documentation :
+dbt docs generate
+dbt docs serve  # Ouvre http://localhost:8000
+
+Résultat : Une documentation interactive avec :
+Schéma de chaque table
+Dépendances visuelles
+Descriptions (depuis YAML)
+Historique des données
+Sans dbt, tu fais ça manuellement (100% pas fait en réalité 😅)
+
+5️⃣ INCREMENTAL BUILDS (Très efficace!)
+-- dbt/models/marts/fct_daily_metrics.sql
+{{ config(
+    materialized='incremental',
+    unique_key='order_id',
+    on_schema_change='fail'
+) }}
+
+SELECT 
+    DATE(order_date) as order_day,
+    COUNT(*) as nb_orders,
+    SUM(sales) as ca_day
+FROM {{ ref('stg_orders') }}
+
+{% if execute %}
+    {% if this.exists %}
+        WHERE order_date > (SELECT MAX(order_date) FROM {{ this }})
+    {% endif %}
+{% endif %}
+
+GROUP BY order_day
+
+Résultat :
+1ère exécution : Charge TOUS les données
+2e exécution : Ajoute SEULEMENT les nouvelles données
+Temps : 100x plus rapide! ⚡
+
+🚀 ARCHITECTURE FINALE : Airflow + dbt + PostgreSQL
+Structure de Projet dbt
+supply_chain_project/
+├── dbt/
+│   ├── models/
+│   │   ├── staging/
+│   │   │   ├── stg_orders.sql          # Orders bruts nettoyés
+│   │   │   ├── stg_deliveries.sql      # Livraisons nettoyées
+│   │   │   └── stg_products.sql        # Produits nettoyés
+│   │   ├── intermediate/
+│   │   │   ├── int_orders_with_delay.sql
+│   │   │   └── int_products_metrics.sql
+│   │   └── marts/
+│   │       ├── fct_supply_chain.sql    # Table de fait
+│   │       ├── dim_products.sql        # Dimension produits
+│   │       ├── dim_suppliers.sql       # Dimension fournisseurs
+│   │       └── analytics/
+│   │           ├── vw_kpi_global.sql
+│   │           ├── vw_perf_region.sql
+│   │           └── vw_tendance.sql
+│   ├── tests/
+│   │   ├── generic/
+│   │   │   └── recency.sql
+│   │   └── singular/
+│   │       └── test_no_future_dates.sql
+│   ├── dbt_project.yml
+│   ├── profiles.yml
+│   └── packages.yml
+│
+├── airflow/
+│   └── dags/
+│       └── supply_chain_dbt_dag.py
+│
+└── data/
+    └── raw/
+        └── DataCoSupplyChain.csv
+
+DAG Airflow avec dbt
+# airflow/dags/supply_chain_dbt_dag.py
+
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
+from airflow.providers.dbt.cloud.operators.dbt import DbtCloudRunJobOperator
+from datetime import datetime, timedelta
+
+default_args = {
+    'owner': 'data_team',
+    'start_date': datetime(2024, 1, 1),
+    'retries': 2,
+    'retry_delay': timedelta(minutes=5)
+}
+
+dag = DAG(
+    'supply_chain_dbt_pipeline',
+    default_args=default_args,
+    description='ETL avec dbt + Airflow',
+    schedule_interval='0 2 * * *',  # Daily 2 AM
+    catchup=False
+)
+
+# ===== TASK 1: EXTRACT =====
+def extract_csv_to_postgres():
+    """Extraire CSV et charger dans PostgreSQL (raw_data)"""
+    import pandas as pd
+    from sqlalchemy import create_engine
+    
+    # Lire CSV
+    df = pd.read_csv('data/raw/DataCoSupplyChain.csv', encoding='latin-1')
+    
+    # Charger dans PostgreSQL
+    engine = create_engine(
+        'postgresql://datateam:SecurePass123!@postgres:5432/supply_chain_dw'
+    )
+    df.to_sql('raw_data', engine, schema='raw_data', if_exists='append')
+    
+    return f"Loaded {len(df)} rows"
+
+task_extract = PythonOperator(
+    task_id='extract_csv',
+    python_callable=extract_csv_to_postgres,
+    dag=dag
+)
+
+# ===== TASK 2: dbt TRANSFORM & TESTS =====
+# Option A: Utiliser dbt CLI directement
+task_dbt_run = BashOperator(
+    task_id='dbt_run',
+    bash_command='cd /app/dbt && dbt run --profiles-dir .',
+    dag=dag
+)
+
+task_dbt_test = BashOperator(
+    task_id='dbt_test',
+    bash_command='cd /app/dbt && dbt test --profiles-dir .',
+    dag=dag
+)
+
+# Option B: Utiliser dbt Cloud (si vous avez un compte)
+# task_dbt_run = DbtCloudRunJobOperator(
+#     task_id='dbt_run_cloud',
+#     job_id=123456,
+#     dbt_cloud_conn_id='dbt_cloud_api',
+#     dag=dag
+# )
+
+# ===== TASK 3: FEATURE ENGINEERING =====
+def feature_engineering():
+    """Créer des features supplémentaires"""
+    import pandas as pd
+    from sqlalchemy import create_engine
+    
+    engine = create_engine(
+        'postgresql://datateam:SecurePass123!@postgres:5432/supply_chain_dw'
+    )
+    
+    # Lire depuis dbt staging
+    df = pd.read_sql(
+        "SELECT * FROM analytics.stg_orders",
+        engine
+    )
+    
+    # Ajouter features
+    df['revenue_per_day'] = df['sales'] / (df['delai_livraison'] + 1)
+    df['is_high_value'] = (df['sales'] > df['sales'].quantile(0.75)).astype(int)
+    
+    # Sauvegarder
+    df.to_sql('features_orders', engine, schema='staging', if_exists='replace')
+    
+    return "Features created"
+
+task_features = PythonOperator(
+    task_id='create_features',
+    python_callable=feature_engineering,
+    dag=dag
+)
+
+# ===== TASK 4: ML MODELING =====
+def train_demand_model():
+    """Entraîner modèle XGBoost"""
+    import pandas as pd
+    import xgboost as xgb
+    from sklearn.model_selection import train_test_split
+    from sqlalchemy import create_engine
+    
+    engine = create_engine(
+        'postgresql://datateam:SecurePass123!@postgres:5432/supply_chain_dw'
+    )
+    
+    # Lire features
+    df = pd.read_sql("SELECT * FROM staging.features_orders", engine)
+    
+    X = df[['delai_livraison', 'mois', 'is_high_value']]
+    y = df['sales']
+    
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    
+    model = xgb.XGBRegressor(n_estimators=100, max_depth=5)
+    model.fit(X_train, y_train)
+    
+    score = model.score(X_test, y_test)
+    print(f"Model R²: {score:.4f}")
+    
+    # Sauvegarder prédictions
+    predictions = model.predict(df[['delai_livraison', 'mois', 'is_high_value']])
+    df['predicted_sales'] = predictions
+    df.to_sql('predictions', engine, schema='analytics', if_exists='replace')
+    
+    return f"Model trained with R²={score:.4f}"
+
+task_model = PythonOperator(
+    task_id='train_model',
+    python_callable=train_demand_model,
+    dag=dag
+)
+
+# ===== DEPENDENCIES =====
+task_extract >> task_dbt_run >> task_dbt_test >> task_features >> task_model
+
+
+📊 dbt.yml Configuration
+# dbt/dbt_project.yml
+name: 'supply_chain'
+version: '1.0.0'
+config-version: 2
+
+profile: 'supply_chain'
+
+model-paths: ["models"]
+test-paths: ["tests"]
+data-paths: ["data"]
+analysis-paths: ["analysis"]
+macro-paths: ["macros"]
+docs-paths: ["docs"]
+
+vars:
+  execution_date: '{{ run_started_at }}'
+  model_version: 'v1'
+
+# dbt/profiles.yml
+supply_chain:
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      user: datateam
+      password: SecurePass123!
+      port: 5432
+      dbname: supply_chain_dw
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
+
+    prod:
+      type: postgres
+      host: postgres
+      user: datateam
+      password: SecurePass123!
+      port: 5432
+      dbname: supply_chain_dw
+      schema: analytics
+      threads: 8
+      keepalives_idle: 0
+
+  target: dev
+
+
+✅ AVANTAGES DE dbt + Airflow
+Aspect
+Sans dbt
+Avec dbt
+Transformation
+Python complexe
+SQL lisible
+Tests
+Manuel
+Automatique
+Documentation
+Manuelle (jamais fait)
+Auto-générée
+Réutilisabilité
+Difficile
+Via ref()
+Version Control
+Code Pandas
+SQL + Git
+Performance
+Pandas lent
+DB compute rapide
+Debugging
+Difficile
+dbt lineage
+Dépendances
+Manuel avec Airflow
+Auto avec dbt
+
+
+🎯 QUAND UTILISER QUOI
+✅ Utilise dbt pour :
+✅ Transformation de données (SQL)
+✅ Créer des vues/tables
+✅ Tests de qualité
+✅ Documentation
+✅ Modulariser le code
+✅ Utilise Airflow pour :
+✅ Orchestrer le flux global
+✅ Extraction de données
+✅ Machine Learning
+✅ Alertes
+✅ Scheduling complexe
+❌ Évite :
+❌ dbt pour l'extraction (c'est Airflow/Python)
+❌ Airflow pour les transformations SQL (c'est dbt)
+
+📦 Installation dbt
+# 1. Installer dbt pour PostgreSQL
+pip install dbt-postgres
+
+# 2. Initialiser projet dbt
+dbt init supply_chain --profiles-dir .
+
+# 3. Configurer profiles.yml (fait ci-dessus)
+
+# 4. Tester connexion
+dbt debug
+
+# 5. Exécuter
+dbt run      # Exécuter les modèles
+dbt test     # Exécuter les tests
+dbt docs generate  # Générer docs
+
+
+🚀 RÉSUMÉ FINAL
+AIRFLOW = Orchéstrateur (Où? Quand? Quoi faire si erreur?)
+dbt = Transformation (Comment transformer les données?)
+PostgreSQL = Data Warehouse (Où stocker?)
+Power BI = Reporting (Comment visualiser?)
+
+Ton pipeline quotidien :
+Airflow déclenche à 2 AM
+Extrait CSV → PostgreSQL (Airflow)
+dbt transforme dans PostgreSQL (dbt)
+dbt teste les données (dbt)
+Python crée features (Airflow)
+XGBoost entraîne modèles (Airflow)
+Power BI lit les vues dbt finales
+Dashboard mis à jour ✅

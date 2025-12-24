@@ -1,0 +1,43 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: "Vue staging des commandes nettoyées depuis les données brutes"
+    columns:
+      - name: order_id
+        description: "Identifiant unique de la commande"
+        tests:
+          - not_null
+          - unique:
+              severity: warn
+      
+      - name: order_date
+        description: "Date de la commande"
+        tests:
+          - not_null
+      
+      - name: customer_id
+        description: "Identifiant du client"
+        tests:
+          - not_null
+      
+      - name: sales
+        description: "Montant des ventes"
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      
+      - name: late_delivery_risk
+        description: "Indicateur de risque de retard (0=Non, 1=Oui)"
+        tests:
+          - accepted_values:
+              values: [0, 1]
+      
+      - name: delivery_status
+        description: "Statut de livraison"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Advance shipping', 'Late delivery', 'Shipping canceled', 'Shipping on time']

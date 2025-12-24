@@ -1,0 +1,23 @@
+version: 2
+
+sources:
+  - name: raw_data
+    description: "Données brutes importées depuis les CSV Kaggle"
+    database: supply_chain_dw
+    schema: raw_data
+    tables:
+      - name: supply_chain_raw
+        description: "Table principale des données de la chaîne logistique"
+        columns:
+          - name: order_id
+            description: "Identifiant unique de la commande"
+            tests:
+              - not_null
+              - unique:
+                  severity: warn
+          - name: order_date_dateorders
+            description: "Date de la commande"
+          - name: delivery_status
+            description: "Statut de livraison"
+          - name: late_delivery_risk
+            description: "Risque de retard (0 ou 1)"

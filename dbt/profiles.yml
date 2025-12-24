@@ -1,0 +1,25 @@
+supply_chain:
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      user: postgres
+      password: postgres
+      port: 5432
+      dbname: supply_chain_dw
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
+
+    prod:
+      type: postgres
+      host: postgres
+      user: datateam
+      password: "{{ env_var('DB_PASSWORD', 'SecurePass123!') }}"
+      port: 5432
+      dbname: supply_chain_dw
+      schema: analytics
+      threads: 8
+      keepalives_idle: 0
+
+  target: dev
