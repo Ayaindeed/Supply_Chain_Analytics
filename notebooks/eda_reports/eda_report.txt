@@ -1,0 +1,203 @@
+=== RAPPORT EDA - Supply Chain Dataset ===
+
+Nombre de lignes: 180519
+Nombre de colonnes: 58
+
+=== TYPES DE DONNÉES ===
+type                            object
+days_for_shipping_real           int64
+days_for_shipment_scheduled      int64
+benefit_per_order              float64
+sales_per_customer             float64
+delivery_status                 object
+late_delivery_risk               int64
+category_id                      int64
+category_name                   object
+customer_city                   object
+customer_country                object
+customer_email                  object
+customer_fname                  object
+customer_id                      int64
+customer_lname                  object
+customer_password               object
+customer_segment                object
+customer_state                  object
+customer_street                 object
+customer_zipcode               float64
+department_id                    int64
+department_name                 object
+latitude_src                   float64
+longitude_src                  float64
+market                          object
+order_city                      object
+order_country                   object
+order_customer_id                int64
+order_date_dateorders           object
+order_id                         int64
+order_item_cardprod_id           int64
+order_item_discount            float64
+order_item_discount_rate       float64
+order_item_id                    int64
+order_item_product_price       float64
+order_item_profit_ratio        float64
+order_item_quantity              int64
+sales                          float64
+order_item_total               float64
+order_profit_per_order         float64
+order_region                    object
+order_state                     object
+order_status                    object
+order_zipcode                  float64
+product_card_id                  int64
+product_category_id              int64
+product_image                   object
+product_name                    object
+product_price                  float64
+product_status                   int64
+shipping_date_dateorders        object
+shipping_mode                   object
+order_country_en                object
+order_state_en                  object
+order_city_en                   object
+latitude_dest                  float64
+longitude_dest                 float64
+address_dest                    object
+dtype: object
+
+=== STATISTIQUES DESCRIPTIVES ===
+          type  ...                       address_dest
+count   180519  ...                             180519
+unique       4  ...                               3664
+top      DEBIT  ...  Santo Domingo, Dominican Republic
+freq     69295  ...                               2211
+mean       NaN  ...                                NaN
+std        NaN  ...                                NaN
+min        NaN  ...                                NaN
+25%        NaN  ...                                NaN
+50%        NaN  ...                                NaN
+75%        NaN  ...                                NaN
+max        NaN  ...                                NaN
+
+[11 rows x 58 columns]
+
+=== VALEURS MANQUANTES ===
+type                                0
+days_for_shipping_real              0
+days_for_shipment_scheduled         0
+benefit_per_order                   0
+sales_per_customer                  0
+delivery_status                     0
+late_delivery_risk                  0
+category_id                         0
+category_name                       0
+customer_city                       0
+customer_country                    0
+customer_email                      0
+customer_fname                      0
+customer_id                         0
+customer_lname                      8
+customer_password                   0
+customer_segment                    0
+customer_state                      0
+customer_street                     0
+customer_zipcode                    3
+department_id                       0
+department_name                     0
+latitude_src                        0
+longitude_src                       0
+market                              0
+order_city                          0
+order_country                       0
+order_customer_id                   0
+order_date_dateorders               0
+order_id                            0
+order_item_cardprod_id              0
+order_item_discount                 0
+order_item_discount_rate            0
+order_item_id                       0
+order_item_product_price            0
+order_item_profit_ratio             0
+order_item_quantity                 0
+sales                               0
+order_item_total                    0
+order_profit_per_order              0
+order_region                        0
+order_state                         0
+order_status                        0
+order_zipcode                  155679
+product_card_id                     0
+product_category_id                 0
+product_image                       0
+product_name                        0
+product_price                       0
+product_status                      0
+shipping_date_dateorders            0
+shipping_mode                       0
+order_country_en                    0
+order_state_en                      0
+order_city_en                       0
+latitude_dest                       0
+longitude_dest                      0
+address_dest                        0
+dtype: int64
+
+=== VALEURS UNIQUES PAR COLONNE ===
+type: 4 valeurs uniques
+days_for_shipping_real: 7 valeurs uniques
+days_for_shipment_scheduled: 4 valeurs uniques
+benefit_per_order: 21998 valeurs uniques
+sales_per_customer: 2927 valeurs uniques
+delivery_status: 4 valeurs uniques
+late_delivery_risk: 2 valeurs uniques
+category_id: 51 valeurs uniques
+category_name: 50 valeurs uniques
+customer_city: 563 valeurs uniques
+customer_country: 2 valeurs uniques
+customer_email: 1 valeurs uniques
+customer_fname: 782 valeurs uniques
+customer_id: 20652 valeurs uniques
+customer_lname: 1109 valeurs uniques
+customer_password: 1 valeurs uniques
+customer_segment: 3 valeurs uniques
+customer_state: 46 valeurs uniques
+customer_street: 7458 valeurs uniques
+customer_zipcode: 995 valeurs uniques
+department_id: 11 valeurs uniques
+department_name: 11 valeurs uniques
+latitude_src: 11250 valeurs uniques
+longitude_src: 4487 valeurs uniques
+market: 5 valeurs uniques
+order_city: 3597 valeurs uniques
+order_country: 164 valeurs uniques
+order_customer_id: 20652 valeurs uniques
+order_date_dateorders: 65752 valeurs uniques
+order_id: 65752 valeurs uniques
+order_item_cardprod_id: 118 valeurs uniques
+order_item_discount: 1017 valeurs uniques
+order_item_discount_rate: 18 valeurs uniques
+order_item_id: 180519 valeurs uniques
+order_item_product_price: 75 valeurs uniques
+order_item_profit_ratio: 162 valeurs uniques
+order_item_quantity: 5 valeurs uniques
+sales: 193 valeurs uniques
+order_item_total: 2927 valeurs uniques
+order_profit_per_order: 21998 valeurs uniques
+order_region: 23 valeurs uniques
+order_state: 1089 valeurs uniques
+order_status: 9 valeurs uniques
+order_zipcode: 609 valeurs uniques
+product_card_id: 118 valeurs uniques
+product_category_id: 51 valeurs uniques
+product_image: 118 valeurs uniques
+product_name: 118 valeurs uniques
+product_price: 75 valeurs uniques
+product_status: 1 valeurs uniques
+shipping_date_dateorders: 63701 valeurs uniques
+shipping_mode: 4 valeurs uniques
+order_country_en: 164 valeurs uniques
+order_state_en: 1085 valeurs uniques
+order_city_en: 3588 valeurs uniques
+latitude_dest: 3666 valeurs uniques
+longitude_dest: 3660 valeurs uniques
+address_dest: 3664 valeurs uniques
+

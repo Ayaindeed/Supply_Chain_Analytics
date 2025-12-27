@@ -233,6 +233,14 @@ def train_demand_prediction_model():
         df['predicted_late_risk_proba'] = model_classification.predict_proba(X_clf)[:, 1]
         
         # Sauvegarder dans PostgreSQL
+        # Supprimer la vue dépendante si elle existe avant de supprimer la table
+        with engine.begin() as conn:
+            try:
+                conn.execute(text("DROP VIEW IF EXISTS analytics_analytics.ml_predictions CASCADE"))
+                logger.info("Vue ml_predictions supprimée")
+            except Exception as e:
+                logger.warning(f"Erreur lors de la suppression de la vue: {e}")
+        
         predictions_df = df[[
             'order_id', 'order_item_id', 'order_date',
             'sales', 'predicted_sales',
@@ -280,6 +288,14 @@ def train_demand_prediction_model():
         ]
         
         metrics_df = pd.DataFrame(metrics_data)
+        
+        # Supprimer la vue dépendante si elle existe avant de supprimer la table
+        with engine.begin() as conn:
+            try:
+                conn.execute(text("DROP VIEW IF EXISTS analytics_analytics.ml_model_metrics CASCADE"))
+                logger.info("Vue ml_model_metrics supprimée")
+            except Exception as e:
+                logger.warning(f"Erreur lors de la suppression de la vue: {e}")
         
         metrics_df.to_sql(
             'ml_model_metrics',

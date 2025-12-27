@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: analytics
+    schema: analytics
+    tables:
+      - name: ml_predictions
+        description: "Table des prédictions ML générées par le script Python"
+      - name: ml_model_metrics
+        description: "Métriques des modèles ML"

@@ -1,6 +1,6 @@
 """
 DAG Airflow pour le pipeline ETL de Supply Chain Analytics
-Architecture: Extraction -> dbt Transform -> Feature Engineering -> ML Modeling
+Architecture: Extraction -> EDA -> dbt Transform -> Feature Engineering -> ML Modeling
 """
 
 from airflow import DAG
@@ -18,6 +18,7 @@ sys.path.insert(0, '/opt/airflow/scripts')
 from extract_data import extract_csv_to_postgres
 from feature_engineering import create_features
 from ml_modeling import train_demand_prediction_model
+from eda_analysis import perform_eda
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,10 @@ def notify_failure(context):
         run_id,
         repr(exception),
     )
+    
+    # TODO: Add Slack/Email alerting here
+    # Example: requests.post('https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK', json={'text': f'Task {task_id} failed: {exception}'})
+    # Or use Airflow's email operator
 
 # Configuration par défaut du DAG
 default_args = {
@@ -45,7 +50,7 @@ default_args = {
     'start_date': days_ago(1),
     'email_on_failure': False,
     'email_on_retry': False,
-    'retries': 2,
+    'retries': 5,
     'retry_delay': timedelta(minutes=5),
 }
 
@@ -71,6 +76,21 @@ task_extract = PythonOperator(
     - Lit le fichier CSV DataCoSupplyChainDatasetRefined.csv
     - Charge les données dans PostgreSQL (schéma: raw_data)
     - Retourne le nombre de lignes chargées
+    """
+)
+
+# ===== TASK 1.5: DATASET EXPLORATION REPORT =====
+task_dataset_exploration_report = PythonOperator(
+    task_id='dataset_exploration_report',
+    python_callable=perform_eda,
+    on_failure_callback=notify_failure,
+    sla=timedelta(minutes=15),
+    dag=dag,
+    doc_md="""
+    ### Dataset Exploration Report
+    - Generates comprehensive reports on dataset structure
+    - Creates visualizations (distributions, correlations, regional analysis)
+    - Saves results in notebooks/eda_reports/
     """
 )
 
@@ -132,7 +152,8 @@ task_ml_model = PythonOperator(
     task_id='train_demand_prediction',
     python_callable=train_demand_prediction_model,
     on_failure_callback=notify_failure,
-    sla=timedelta(minutes=30),
+    sla=timedelta(minutes=60),
+    execution_timeout=timedelta(minutes=60),
     dag=dag,
     doc_md="""
     ### Entraînement du modèle ML
@@ -153,5 +174,5 @@ task_dbt_docs = BashOperator(
 
 # ===== DÉFINITION DES DÉPENDANCES =====
 # Pipeline linéaire avec embranchement pour la documentation
-task_extract >> task_dbt_deps >> task_dbt_run >> task_dbt_test >> task_features >> task_ml_model
+task_extract >> task_dataset_exploration_report >> task_dbt_deps >> task_dbt_run >> task_dbt_test >> task_features >> task_ml_model
 task_dbt_run >> task_dbt_docs
